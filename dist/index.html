@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LabFreeze Web Manager 2026 | Generations Genetics Labs</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Cairo', 'Tajawal', 'sans-serif'],
+          },
+          colors: {
+            navy: {
+              DEFAULT: '#1e3a8a',
+              dark: '#172554',
+              light: '#1e40af',
+            },
+            teal: {
+              DEFAULT: '#2bb69a',
+              dark: '#134e4a',
+              light: '#2dd4bf',
+            },
+            white: 'rgb(var(--color-white) / <alpha-value>)',
+            black: 'rgb(var(--color-black) / <alpha-value>)',
+          }
+        }
+      }
+    }
+  </script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@200;300;400;500;600;700;800;900&family=Tajawal:wght@200;300;400;500;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      /* Premium Glassmorphism Palette */
+      --color-bg: 240 249 255; /* sky-50 */
+      --color-navy: 30 58 138; /* #1e3a8a */
+      --color-teal: 43 182 154; /* #2bb69a */
+      
+      --color-white: 255 255 255;
+      --color-black: 0 0 0;
+    }
+
+    .dark {
+      --color-white: 30 41 59; /* Slate 800 */
+      --color-black: 241 245 249; /* Slate 100 */
+    }
+
+    body {
+      font-family: 'Cairo', 'Tajawal', sans-serif;
+      background-color: rgb(var(--color-bg));
+      color: rgb(var(--color-black));
+      overflow-x: hidden;
+      /* Premium background with gradients */
+      background-image: 
+        radial-gradient(circle at 0% 0%, rgba(30, 58, 138, 0.05) 0%, transparent 50%),
+        radial-gradient(circle at 100% 100%, rgba(43, 182, 154, 0.05) 0%, transparent 50%);
+      background-attachment: fixed;
+    }
+
+    .glass-panel {
+      background: rgba(30, 58, 138, 0.1);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    }
+
+    .glass-card {
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(10, 15, 25, 0.8);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(20, 184, 166, 0.5);
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(20, 184, 166, 0.8);
+    }
+  </style>
+  <script type="module" crossorigin src="/assets/index-B2x0njHf.js"></script>
+</head>
+<body class="font-sans">
+  <div id="root"></div>
+</body>
+</html>

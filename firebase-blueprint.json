@@ -1,0 +1,166 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the system",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "role": { "type": "string", "enum": ["Admin", "User"] },
+        "permissions": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "name", "username", "role", "permissions", "createdAt"]
+    },
+    "Sample": {
+      "title": "Sample",
+      "description": "A lab sample",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patient_name": { "type": "string" },
+        "patient_id": { "type": "string" },
+        "tube_type": { "type": "string" },
+        "count": { "type": "number" },
+        "status": { "type": "string" },
+        "notes": { "type": "string" },
+        "created_at": { "type": "string" },
+        "finished_at": { "type": "string" },
+        "finished_by": { "type": "string" },
+        "created_by": { "type": "string" },
+        "storage_id": { "type": "string" },
+        "barcode": { "type": "string" }
+      },
+      "required": ["id", "patient_name", "patient_id", "tube_type", "count", "status", "created_at", "created_by"]
+    },
+    "HoldCase": {
+      "title": "HoldCase",
+      "description": "A pending or hold case",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patient_name": { "type": "string" },
+        "patient_id": { "type": "string" },
+        "test_type": { "type": "string" },
+        "center_name": { "type": "string" },
+        "comment": { "type": "string" },
+        "status": { "type": "string" },
+        "is_finished": { "type": "boolean" },
+        "created_at": { "type": "string" },
+        "finished_at": { "type": "string" },
+        "finished_by": { "type": "string" },
+        "created_by": { "type": "string" }
+      },
+      "required": ["id", "patient_name", "patient_id", "test_type", "center_name", "status", "is_finished", "created_at", "created_by"]
+    },
+    "Fridge": {
+      "title": "Fridge",
+      "description": "A storage fridge",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "capacity": { "type": "number" },
+        "location": { "type": "string" }
+      },
+      "required": ["id", "name", "capacity"]
+    },
+    "Evaluation": {
+      "title": "Evaluation",
+      "description": "Staff evaluation",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staffId": { "type": "string" },
+        "staffName": { "type": "string" },
+        "rating": { "type": "number" },
+        "adminId": { "type": "string" },
+        "month": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "staffId", "staffName", "rating", "adminId", "month", "createdAt"]
+    },
+    "InventorySchedule": {
+      "title": "InventorySchedule",
+      "description": "Schedule for inventory",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "staff_id": { "type": "string" },
+        "staff_name": { "type": "string" },
+        "staff_phone": { "type": "string" },
+        "staff_email": { "type": "string" },
+        "date": { "type": "string" },
+        "time": { "type": "string" },
+        "status": { "type": "string" },
+        "type": { "type": "string" },
+        "message": { "type": "string" },
+        "commitment_grade": { "type": "string" },
+        "send_advance_reminder": { "type": "boolean" },
+        "send_same_day_reminder": { "type": "boolean" }
+      },
+      "required": ["id", "staff_id", "staff_name", "date", "time", "status", "type", "message", "send_advance_reminder", "send_same_day_reminder"]
+    },
+    "InventoryLog": {
+      "title": "InventoryLog",
+      "description": "Log of inventory actions",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "action_type": { "type": "string" },
+        "sample_id": { "type": "string" },
+        "performed_by": { "type": "string" },
+        "details": { "type": "string" },
+        "timestamp": { "type": "string" }
+      },
+      "required": ["action_type", "sample_id", "performed_by", "timestamp"]
+    },
+    "AppConfig": {
+      "title": "AppConfig",
+      "description": "Application configuration",
+      "type": "object",
+      "properties": {
+        "enabledFeatures": { "type": "array", "items": { "type": "string" } },
+        "theme": { "type": "object" }
+      }
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles"
+    },
+    "samples/{sampleId}": {
+      "schema": { "$ref": "#/entities/Sample" },
+      "description": "Lab samples"
+    },
+    "hold_cases/{caseId}": {
+      "schema": { "$ref": "#/entities/HoldCase" },
+      "description": "Hold cases"
+    },
+    "fridges/{fridgeId}": {
+      "schema": { "$ref": "#/entities/Fridge" },
+      "description": "Fridges"
+    },
+    "evaluations/{evalId}": {
+      "schema": { "$ref": "#/entities/Evaluation" },
+      "description": "Evaluations"
+    },
+    "inventory_schedules/{scheduleId}": {
+      "schema": { "$ref": "#/entities/InventorySchedule" },
+      "description": "Inventory schedules"
+    },
+    "inventory_logs/{logId}": {
+      "schema": { "$ref": "#/entities/InventoryLog" },
+      "description": "Inventory logs"
+    },
+    "config/{configId}": {
+      "schema": { "$ref": "#/entities/AppConfig" },
+      "description": "App configuration"
+    }
+  }
+}

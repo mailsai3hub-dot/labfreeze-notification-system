@@ -1,0 +1,17 @@
+{
+  "name": "GeneOps Administration System 2026",
+  "short_name": "LabFreeze",
+  "description": "Advanced laboratory management system for Generations Genetics Labs (معمل أجيال للوراثة) with premium glassmorphism design.",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/3063/3063176.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#F8FAFC",
+  "theme_color": "#0056b3",
+  "requestFramePermissions": []
+}

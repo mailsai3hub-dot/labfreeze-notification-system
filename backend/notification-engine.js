@@ -7,7 +7,7 @@ import twilio from 'twilio';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// ================= 1. FIREBASE CONFIG (الحل الجذري) =================
+// ================= 1. FIREBASE CONFIG (إصدار مضاد للأخطاء) =================
 
 const serviceAccountRaw = process.env.FIREBASE_SERVICE_ACCOUNT;
 
@@ -18,22 +18,25 @@ if (!serviceAccountRaw) {
 
 let serviceAccount;
 try {
-  // تحويل النص القادم من GitHub Secrets إلى كائن JSON
-  serviceAccount = JSON.parse(serviceAccountRaw);
+  // خطوة الحماية: تنظيف النص من أي علامات اقتباس مفردة أو مسافات قد تأتي من GitHub
+  const cleanedJson = serviceAccountRaw.trim().replace(/^'|'$/g, '');
+  
+  // تحويل النص المُنظف إلى كائن JSON
+  serviceAccount = JSON.parse(cleanedJson);
 
-  // تأمين معالجة السطور الجديدة في المفتاح الخاص (Private Key)
+  // معالجة المفتاح الخاص لضمان قراءة السطور الجديدة (\n) بشكل صحيح
   if (serviceAccount.private_key) {
     serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
   }
 } catch (err) {
-  console.error('❌ Error parsing Service Account JSON:', err.message);
+  console.error('❌ JSON Parse Error (Check your GitHub Secrets):', err.message);
   process.exit(1);
 }
 
-// تحديد الـ Database ID الخاص بك
+// الـ Database ID الخاص بمشروعك
 const FIREBASE_DATABASE_ID = 'ai-studio-a5c3223e-5fa3-407f-b8e3-1b9d0e6a0130';
 
-// عمل Initialize لـ Firebase
+// تشغيل تطبيق Firebase Admin
 if (!admin.apps.length) {
   admin.initializeApp({
     credential: admin.credential.cert(serviceAccount)
@@ -42,7 +45,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore(admin.app(), FIREBASE_DATABASE_ID);
 
-// ================= 2. OTHER SERVICES CONFIG =================
+// ================= 2. إعدادات الخدمات الأخرى =================
 
 const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASS = process.env.EMAIL_PASS;
@@ -59,104 +62,84 @@ const transporter = EMAIL_USER && EMAIL_PASS
 
 const client = TWILIO_SID && TWILIO_TOKEN ? twilio(TWILIO_SID, TWILIO_TOKEN) : null;
 
-// ================= 3. DEBUG & HELPERS =================
+console.log('🚀 Notification Engine Started Successfully');
 
-console.log('🚀 Notification Engine Started');
-console.log('✅ Twilio Status:', !!client ? 'Ready' : 'Not Configured');
-console.log('✅ Firebase Status: Connected to', serviceAccount.project_id);
+// ================= 3. منطق الإشعارات =================
 
-function isValidDateString(dateStr) {
-  return typeof dateStr === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateStr);
-}
-
-// ================= 4. NOTIFICATION LOGIC =================
-
-export async function triggerNotification(schedule, isAdvanceReminder = false) {
+async function triggerNotification(schedule, isAdvanceReminder = false) {
   const timeLabel = isAdvanceReminder ? 'تذكير مبكر: الجرد غداً' : 'تذكير نهائي: الجرد اليوم';
-  const fullMessage = `${timeLabel}\n${schedule.message || ''}`;
+  const fullMessage = `${timeLabel}\n${schedule.message || 'لا توجد ملاحظات إضافية'}`;
 
-  let whatsappSent = false;
-  let emailSent = false;
+  let sentStatus = false;
 
-  // WhatsApp
+  // إرسال WhatsApp عبر Twilio
   if ((schedule.type === 'WhatsApp' || schedule.type === 'Both') && schedule.staffPhone && client) {
     try {
-      const msg = await client.messages.create({
+      await client.messages.create({
         from: TWILIO_WHATSAPP_NUMBER,
         to: `whatsapp:${schedule.staffPhone}`,
         body: fullMessage
       });
-      console.log(`📱 WhatsApp sent to ${schedule.staffPhone}: ${msg.sid}`);
-      whatsappSent = true;
-    } catch (err) {
-      console.error('❌ WhatsApp Error:', err.message);
-    }
+      console.log(`📱 WhatsApp sent to: ${schedule.staffPhone}`);
+      sentStatus = true;
+    } catch (err) { console.error('❌ WhatsApp Error:', err.message); }
   }
 
-  // Email
+  // إرسال بريد إلكتروني عبر Nodemailer
   if ((schedule.type === 'Email' || schedule.type === 'Both') && schedule.staffEmail && transporter) {
     try {
       await transporter.sendMail({
         from: `"LabFreeze System" <${EMAIL_USER}>`,
         to: schedule.staffEmail,
-        subject: `تنبيه جرد الثلاجة - ${schedule.date || 'بدون تاريخ'}`,
+        subject: `تنبيه جرد الثلاجة - ${schedule.date}`,
         text: fullMessage
       });
-      console.log(`📧 Email sent to ${schedule.staffEmail}`);
-      emailSent = true;
-    } catch (err) {
-      console.error('❌ Email Error:', err.message);
-    }
+      console.log(`📧 Email sent to: ${schedule.staffEmail}`);
+      sentStatus = true;
+    } catch (err) { console.error('❌ Email Error:', err.message); }
   }
-
-  return schedule.type === 'Both' ? (whatsappSent || emailSent) : (whatsappSent || emailSent);
+  return sentStatus;
 }
 
-// ================= 5. MAIN CHECKER =================
+// ================= 4. فحص المواعيد في Firestore =================
 
 async function checkAndSendSchedules() {
-  const now = new Date();
-  const todayStr = now.toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
-  console.log(`🔍 Checking schedules for [Today: ${todayStr}] [Tomorrow: ${tomorrowStr}]`);
+  console.log(`🔍 Checking Database... Today: ${todayStr} | Tomorrow: ${tomorrowStr}`);
 
   try {
     const snapshot = await db.collection('schedules').get();
     if (snapshot.empty) {
-      console.log('ℹ️ No schedules found in database.');
+      console.log('ℹ️ No schedules found.');
       return;
     }
 
     for (const doc of snapshot.docs) {
       const schedule = doc.data();
       const docRef = db.collection('schedules').doc(doc.id);
-      const scheduleDate = schedule.date;
 
-      if (!isValidDateString(scheduleDate)) continue;
-
-      // 24 HOURS REMINDER
-      if (scheduleDate === tomorrowStr && schedule.sendAdvanceReminder && !schedule.advanceReminderSent) {
-        const sent = await triggerNotification(schedule, true);
-        if (sent) {
-          await docRef.update({
-            advanceReminderSent: true,
-            advanceReminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastAdvanceReminderForDate: scheduleDate
+      // 1. تذكير قبل الموعد بـ 24 ساعة
+      if (schedule.date === tomorrowStr && schedule.sendAdvanceReminder && !schedule.advanceReminderSent) {
+        const success = await triggerNotification(schedule, true);
+        if (success) {
+          await docRef.update({ 
+            advanceReminderSent: true, 
+            advanceReminderSentAt: admin.firestore.FieldValue.serverTimestamp() 
           });
         }
       }
 
-      // SAME DAY REMINDER
-      if (scheduleDate === todayStr && schedule.sendSameDayReminder && !schedule.sameDayReminderSent) {
-        const sent = await triggerNotification(schedule, false);
-        if (sent) {
-          await docRef.update({
-            sameDayReminderSent: true,
-            sameDayReminderSentAt: admin.firestore.FieldValue.serverTimestamp(),
-            lastSameDayReminderForDate: scheduleDate
+      // 2. تذكير في نفس يوم الموعد
+      if (schedule.date === todayStr && schedule.sendSameDayReminder && !schedule.sameDayReminderSent) {
+        const success = await triggerNotification(schedule, false);
+        if (success) {
+          await docRef.update({ 
+            sameDayReminderSent: true, 
+            sameDayReminderSentAt: admin.firestore.FieldValue.serverTimestamp() 
           });
         }
       }
@@ -166,11 +149,13 @@ async function checkAndSendSchedules() {
   }
 }
 
-// ================= 6. EXECUTION =================
+// ================= 5. التشغيل والجدولة =================
 
+// تشغيل فحص فوري عند بدء تشغيل الملف
 checkAndSendSchedules();
 
+// جدولة التشغيل كل ساعة (الدقيقة 0)
 cron.schedule('0 * * * *', () => {
-  console.log('⏰ Running scheduled check...');
+  console.log('⏰ Hourly schedule check triggered...');
   checkAndSendSchedules();
 });

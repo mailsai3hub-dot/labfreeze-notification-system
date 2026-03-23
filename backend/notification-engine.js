@@ -9,28 +9,51 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // ================= FIREBASE CONFIG =================
 
+function parseServiceAccount(raw) {
+  if (!raw) {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing');
+  }
+
+  let text = raw.trim();
+
+  // لو secret متخزن كنص JSON عادي
+  try {
+    const obj = JSON.parse(text);
+    if (obj.private_key) {
+      obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+    }
+    return obj;
+  } catch (_) {}
+
+  // لو secret متخزن كنص محاط بعلامات اقتباس
+  try {
+    const unwrapped = text.replace(/^['"]|['"]$/g, '');
+    const obj = JSON.parse(unwrapped);
+    if (obj.private_key) {
+      obj.private_key = obj.private_key.replace(/\\n/g, '\n');
+    }
+    return obj;
+  } catch (_) {}
+
+  throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON');
+}
+
 let serviceAccount;
 
 try {
-  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT');
-  }
+  serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-  serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-  if (!serviceAccount.project_id) {
+  if (typeof serviceAccount.project_id !== 'string' || !serviceAccount.project_id) {
     throw new Error('Missing project_id in FIREBASE_SERVICE_ACCOUNT');
   }
 
-  if (!serviceAccount.client_email) {
+  if (typeof serviceAccount.client_email !== 'string' || !serviceAccount.client_email) {
     throw new Error('Missing client_email in FIREBASE_SERVICE_ACCOUNT');
   }
 
-  if (!serviceAccount.private_key) {
+  if (typeof serviceAccount.private_key !== 'string' || !serviceAccount.private_key) {
     throw new Error('Missing private_key in FIREBASE_SERVICE_ACCOUNT');
   }
-
-  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
 } catch (err) {
   console.error('❌ Firebase JSON Error:', err.message);
   process.exit(1);
@@ -62,15 +85,6 @@ const client =
     ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
     : null;
 
-// ================= DEBUG =================
-
-console.log('🚀 LabFreeze Notification Engine is LIVE');
-console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
-console.log('TWILIO_SID exists:', !!process.env.TWILIO_SID);
-console.log('TWILIO_TOKEN exists:', !!process.env.TWILIO_TOKEN);
-console.log('FIREBASE_SERVICE_ACCOUNT exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT);
-console.log('Firebase project_id:', serviceAccount.project_id);
-
 // ================= SEND FUNCTION =================
 
 async function triggerNotification(schedule) {
@@ -88,7 +102,6 @@ async function triggerNotification(schedule) {
         to: `whatsapp:${schedule.staffPhone}`,
         body: message
       });
-
       console.log(`📱 WhatsApp sent to ${schedule.staffPhone}`);
       sent = true;
     } catch (err) {
@@ -108,7 +121,6 @@ async function triggerNotification(schedule) {
         subject: 'تنبيه جرد الثلاجة',
         text: message
       });
-
       console.log(`📧 Email sent to ${schedule.staffEmail}`);
       sent = true;
     } catch (err) {
@@ -126,10 +138,7 @@ async function checkAndSendSchedules() {
   console.log(`🔍 Checking schedules for: ${today}`);
 
   try {
-    const snapshot = await db
-      .collection('schedules')
-      .where('date', '==', today)
-      .get();
+    const snapshot = await db.collection('schedules').where('date', '==', today).get();
 
     if (snapshot.empty) {
       console.log('ℹ️ No schedules for today.');
@@ -143,15 +152,9 @@ async function checkAndSendSchedules() {
         const success = await triggerNotification(schedule);
 
         if (success) {
-          await db.collection('schedules').doc(doc.id).update({
-            sent: true
-          });
+          await db.collection('schedules').doc(doc.id).update({ sent: true });
           console.log(`✅ Marked as sent: ${doc.id}`);
-        } else {
-          console.log(`⚠️ Sending failed for: ${doc.id}`);
         }
-      } else {
-        console.log(`ℹ️ Already sent: ${doc.id}`);
       }
     }
   } catch (err) {
@@ -159,7 +162,8 @@ async function checkAndSendSchedules() {
   }
 }
 
-// ================= RUN NOW + CRON =================
+console.log('🚀 LabFreeze Notification Engine is LIVE');
+console.log('FIREBASE_SERVICE_ACCOUNT exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT);
 
 checkAndSendSchedules();
 

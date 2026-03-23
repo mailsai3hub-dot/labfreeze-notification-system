@@ -20,8 +20,16 @@ const TWILIO_WHATSAPP_NUMBER =
 // Firebase ENV
 const FIREBASE_PROJECT_ID = process.env.FIREBASE_PROJECT_ID;
 const FIREBASE_CLIENT_EMAIL = process.env.FIREBASE_CLIENT_EMAIL;
-const FIREBASE_PRIVATE_KEY =
-  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n');
+
+// ✅ دعم الـ private key سواء كان فيه \n أو multiline حقيقي
+let FIREBASE_PRIVATE_KEY = process.env.FIREBASE_PRIVATE_KEY;
+
+if (FIREBASE_PRIVATE_KEY) {
+  FIREBASE_PRIVATE_KEY = FIREBASE_PRIVATE_KEY
+    .replace(/\\n/g, '\n')
+    .replace(/\r/g, '')
+    .trim();
+}
 
 const FIREBASE_DATABASE_ID =
   'ai-studio-a5c3223e-5fa3-407f-b8e3-1b9d0e6a0130';

@@ -7,36 +7,32 @@ import twilio from 'twilio';
 import admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 
-// ================= 1. FIREBASE CONFIG =================
-
-const FIREBASE_DATABASE_ID = 'ai-studio-a5c3223e-5fa3-407f-b8e3-1b9d0e6a0130';
-
-if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
-  console.error('❌ CRITICAL ERROR: FIREBASE_SERVICE_ACCOUNT is missing!');
-  process.exit(1);
-}
+// ================= FIREBASE CONFIG =================
 
 let serviceAccount;
 
 try {
+  if (!process.env.FIREBASE_SERVICE_ACCOUNT) {
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT');
+  }
+
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-  if (!serviceAccount.project_id || typeof serviceAccount.project_id !== 'string') {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing project_id');
+  if (!serviceAccount.project_id) {
+    throw new Error('Missing project_id in FIREBASE_SERVICE_ACCOUNT');
   }
 
-  if (!serviceAccount.client_email || typeof serviceAccount.client_email !== 'string') {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing client_email');
+  if (!serviceAccount.client_email) {
+    throw new Error('Missing client_email in FIREBASE_SERVICE_ACCOUNT');
   }
 
-  if (!serviceAccount.private_key || typeof serviceAccount.private_key !== 'string') {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing private_key');
+  if (!serviceAccount.private_key) {
+    throw new Error('Missing private_key in FIREBASE_SERVICE_ACCOUNT');
   }
 
   serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
 } catch (err) {
-  console.error('❌ CRITICAL ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT JSON');
-  console.error(err.message);
+  console.error('❌ Firebase JSON Error:', err.message);
   process.exit(1);
 }
 
@@ -46,9 +42,9 @@ if (!admin.apps.length) {
   });
 }
 
-const db = getFirestore(admin.app(), FIREBASE_DATABASE_ID);
+const db = getFirestore();
 
-// ================= 2. SERVICES CONFIG =================
+// ================= EMAIL + WHATSAPP CONFIG =================
 
 const transporter =
   process.env.EMAIL_USER && process.env.EMAIL_PASS
@@ -66,22 +62,21 @@ const client =
     ? twilio(process.env.TWILIO_SID, process.env.TWILIO_TOKEN)
     : null;
 
-// ================= 3. DEBUG =================
+// ================= DEBUG =================
 
 console.log('🚀 LabFreeze Notification Engine is LIVE');
 console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('TWILIO_SID exists:', !!process.env.TWILIO_SID);
 console.log('TWILIO_TOKEN exists:', !!process.env.TWILIO_TOKEN);
 console.log('FIREBASE_SERVICE_ACCOUNT exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT);
-console.log('FIREBASE project_id:', serviceAccount.project_id);
+console.log('Firebase project_id:', serviceAccount.project_id);
 
-// ================= 4. SEND FUNCTION =================
+// ================= SEND FUNCTION =================
 
 async function triggerNotification(schedule) {
   const message = `تذكير جرد مختبر: ${schedule.message || 'موعد الجرد الدوري'}`;
   let sent = false;
 
-  // WhatsApp
   if (
     (schedule.type === 'WhatsApp' || schedule.type === 'Both') &&
     client &&
@@ -101,7 +96,6 @@ async function triggerNotification(schedule) {
     }
   }
 
-  // Email
   if (
     (schedule.type === 'Email' || schedule.type === 'Both') &&
     transporter &&
@@ -125,7 +119,7 @@ async function triggerNotification(schedule) {
   return sent;
 }
 
-// ================= 5. FIRESTORE CHECK =================
+// ================= CHECK SCHEDULES =================
 
 async function checkAndSendSchedules() {
   const today = new Date().toISOString().split('T')[0];
@@ -165,7 +159,7 @@ async function checkAndSendSchedules() {
   }
 }
 
-// ================= 6. RUN NOW + CRON =================
+// ================= RUN NOW + CRON =================
 
 checkAndSendSchedules();
 

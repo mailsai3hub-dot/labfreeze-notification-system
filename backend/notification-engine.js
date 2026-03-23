@@ -21,9 +21,19 @@ let serviceAccount;
 try {
   serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
 
-  if (serviceAccount.private_key) {
-    serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  if (!serviceAccount.project_id || typeof serviceAccount.project_id !== 'string') {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing project_id');
   }
+
+  if (!serviceAccount.client_email || typeof serviceAccount.client_email !== 'string') {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing client_email');
+  }
+
+  if (!serviceAccount.private_key || typeof serviceAccount.private_key !== 'string') {
+    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing private_key');
+  }
+
+  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
 } catch (err) {
   console.error('❌ CRITICAL ERROR: Failed to parse FIREBASE_SERVICE_ACCOUNT JSON');
   console.error(err.message);
@@ -59,9 +69,11 @@ const client =
 // ================= 3. DEBUG =================
 
 console.log('🚀 LabFreeze Notification Engine is LIVE');
+console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
 console.log('TWILIO_SID exists:', !!process.env.TWILIO_SID);
 console.log('TWILIO_TOKEN exists:', !!process.env.TWILIO_TOKEN);
 console.log('FIREBASE_SERVICE_ACCOUNT exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log('FIREBASE project_id:', serviceAccount.project_id);
 
 // ================= 4. SEND FUNCTION =================
 
@@ -69,6 +81,7 @@ async function triggerNotification(schedule) {
   const message = `تذكير جرد مختبر: ${schedule.message || 'موعد الجرد الدوري'}`;
   let sent = false;
 
+  // WhatsApp
   if (
     (schedule.type === 'WhatsApp' || schedule.type === 'Both') &&
     client &&
@@ -80,6 +93,7 @@ async function triggerNotification(schedule) {
         to: `whatsapp:${schedule.staffPhone}`,
         body: message
       });
+
       console.log(`📱 WhatsApp sent to ${schedule.staffPhone}`);
       sent = true;
     } catch (err) {
@@ -87,6 +101,7 @@ async function triggerNotification(schedule) {
     }
   }
 
+  // Email
   if (
     (schedule.type === 'Email' || schedule.type === 'Both') &&
     transporter &&
@@ -99,6 +114,7 @@ async function triggerNotification(schedule) {
         subject: 'تنبيه جرد الثلاجة',
         text: message
       });
+
       console.log(`📧 Email sent to ${schedule.staffEmail}`);
       sent = true;
     } catch (err) {
@@ -140,6 +156,8 @@ async function checkAndSendSchedules() {
         } else {
           console.log(`⚠️ Sending failed for: ${doc.id}`);
         }
+      } else {
+        console.log(`ℹ️ Already sent: ${doc.id}`);
       }
     }
   } catch (err) {

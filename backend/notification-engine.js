@@ -9,53 +9,38 @@ import { getFirestore } from 'firebase-admin/firestore';
 
 // ================= FIREBASE CONFIG =================
 
-function parseServiceAccount(raw) {
+function loadServiceAccountFromBase64() {
+  const raw = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+
   if (!raw) {
-    throw new Error('FIREBASE_SERVICE_ACCOUNT is missing');
+    throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_BASE64');
   }
 
-  let text = raw.trim();
+  const jsonText = Buffer.from(raw, 'base64').toString('utf8');
+  const serviceAccount = JSON.parse(jsonText);
 
-  // لو secret متخزن كنص JSON عادي
-  try {
-    const obj = JSON.parse(text);
-    if (obj.private_key) {
-      obj.private_key = obj.private_key.replace(/\\n/g, '\n');
-    }
-    return obj;
-  } catch (_) {}
+  if (!serviceAccount.project_id || typeof serviceAccount.project_id !== 'string') {
+    throw new Error('Missing project_id in service account JSON');
+  }
 
-  // لو secret متخزن كنص محاط بعلامات اقتباس
-  try {
-    const unwrapped = text.replace(/^['"]|['"]$/g, '');
-    const obj = JSON.parse(unwrapped);
-    if (obj.private_key) {
-      obj.private_key = obj.private_key.replace(/\\n/g, '\n');
-    }
-    return obj;
-  } catch (_) {}
+  if (!serviceAccount.client_email || typeof serviceAccount.client_email !== 'string') {
+    throw new Error('Missing client_email in service account JSON');
+  }
 
-  throw new Error('FIREBASE_SERVICE_ACCOUNT is not valid JSON');
+  if (!serviceAccount.private_key || typeof serviceAccount.private_key !== 'string') {
+    throw new Error('Missing private_key in service account JSON');
+  }
+
+  serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+  return serviceAccount;
 }
 
 let serviceAccount;
 
 try {
-  serviceAccount = parseServiceAccount(process.env.FIREBASE_SERVICE_ACCOUNT);
-
-  if (typeof serviceAccount.project_id !== 'string' || !serviceAccount.project_id) {
-    throw new Error('Missing project_id in FIREBASE_SERVICE_ACCOUNT');
-  }
-
-  if (typeof serviceAccount.client_email !== 'string' || !serviceAccount.client_email) {
-    throw new Error('Missing client_email in FIREBASE_SERVICE_ACCOUNT');
-  }
-
-  if (typeof serviceAccount.private_key !== 'string' || !serviceAccount.private_key) {
-    throw new Error('Missing private_key in FIREBASE_SERVICE_ACCOUNT');
-  }
+  serviceAccount = loadServiceAccountFromBase64();
 } catch (err) {
-  console.error('❌ Firebase JSON Error:', err.message);
+  console.error('❌ Firebase Config Error:', err.message);
   process.exit(1);
 }
 
@@ -67,7 +52,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore();
 
-// ================= EMAIL + WHATSAPP CONFIG =================
+// ================= SERVICES CONFIG =================
 
 const transporter =
   process.env.EMAIL_USER && process.env.EMAIL_PASS
@@ -155,6 +140,8 @@ async function checkAndSendSchedules() {
           await db.collection('schedules').doc(doc.id).update({ sent: true });
           console.log(`✅ Marked as sent: ${doc.id}`);
         }
+      } else {
+        console.log(`ℹ️ Already sent: ${doc.id}`);
       }
     }
   } catch (err) {
@@ -163,7 +150,7 @@ async function checkAndSendSchedules() {
 }
 
 console.log('🚀 LabFreeze Notification Engine is LIVE');
-console.log('FIREBASE_SERVICE_ACCOUNT exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT);
+console.log('FIREBASE_SERVICE_ACCOUNT_BASE64 exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64);
 
 checkAndSendSchedules();
 

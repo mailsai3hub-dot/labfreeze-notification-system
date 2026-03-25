@@ -22,9 +22,7 @@ jobs:
         run: npm install
 
       - name: Run Script
-        # أضفنا NODE_OPTIONS هنا لحل مشكلة الـ DECODER
         env:
-          NODE_OPTIONS: "--openssl-legacy-provider"
           EMAIL_USER: ${{ secrets.EMAIL_USER }}
           EMAIL_PASS: ${{ secrets.EMAIL_PASS }}
           TWILIO_SID: ${{ secrets.TWILIO_SID }}

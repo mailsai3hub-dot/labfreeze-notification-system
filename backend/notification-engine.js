@@ -19,19 +19,8 @@ function loadServiceAccountFromBase64() {
   const jsonText = Buffer.from(raw, 'base64').toString('utf8');
   const serviceAccount = JSON.parse(jsonText);
 
-  if (!serviceAccount.project_id || typeof serviceAccount.project_id !== 'string') {
-    throw new Error('Missing project_id in service account JSON');
-  }
-
-  if (!serviceAccount.client_email || typeof serviceAccount.client_email !== 'string') {
-    throw new Error('Missing client_email in service account JSON');
-  }
-
-  if (!serviceAccount.private_key || typeof serviceAccount.private_key !== 'string') {
-    throw new Error('Missing private_key in service account JSON');
-  }
-
   serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
+
   return serviceAccount;
 }
 
@@ -39,8 +28,9 @@ let serviceAccount;
 
 try {
   serviceAccount = loadServiceAccountFromBase64();
+  console.log('✅ Firebase loaded');
 } catch (err) {
-  console.error('❌ Firebase Config Error:', err.message);
+  console.error('❌ Firebase Error:', err.message);
   process.exit(1);
 }
 
@@ -52,7 +42,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore();
 
-// ================= SERVICES CONFIG =================
+// ================= SERVICES =================
 
 const transporter =
   process.env.EMAIL_USER && process.env.EMAIL_PASS
@@ -76,37 +66,39 @@ async function triggerNotification(schedule) {
   const message = `تذكير جرد مختبر: ${schedule.message || 'موعد الجرد الدوري'}`;
   let sent = false;
 
+  // WhatsApp
   if (
     (schedule.type === 'WhatsApp' || schedule.type === 'Both') &&
     client &&
-    schedule.staffPhone
+    schedule.staff_phone
   ) {
     try {
       await client.messages.create({
         from: process.env.TWILIO_WHATSAPP_NUMBER,
-        to: `whatsapp:${schedule.staffPhone}`,
+        to: `whatsapp:${schedule.staff_phone}`,
         body: message
       });
-      console.log(`📱 WhatsApp sent to ${schedule.staffPhone}`);
+      console.log(`📱 WhatsApp sent to ${schedule.staff_phone}`);
       sent = true;
     } catch (err) {
       console.error('❌ WhatsApp Error:', err.message);
     }
   }
 
+  // Email
   if (
     (schedule.type === 'Email' || schedule.type === 'Both') &&
     transporter &&
-    schedule.staffEmail
+    schedule.staff_email
   ) {
     try {
       await transporter.sendMail({
         from: `"LabFreeze System" <${process.env.EMAIL_USER}>`,
-        to: schedule.staffEmail,
+        to: schedule.staff_email,
         subject: 'تنبيه جرد الثلاجة',
         text: message
       });
-      console.log(`📧 Email sent to ${schedule.staffEmail}`);
+      console.log(`📧 Email sent to ${schedule.staff_email}`);
       sent = true;
     } catch (err) {
       console.error('❌ Email Error:', err.message);
@@ -116,14 +108,17 @@ async function triggerNotification(schedule) {
   return sent;
 }
 
-// ================= CHECK SCHEDULES =================
+// ================= MAIN =================
 
 async function checkAndSendSchedules() {
   const today = new Date().toISOString().split('T')[0];
   console.log(`🔍 Checking schedules for: ${today}`);
 
   try {
-    const snapshot = await db.collection('schedules').where('date', '==', today).get();
+    const snapshot = await db
+      .collection('inventory_schedules') // ✅ مهم جدًا
+      .where('date', '==', today)
+      .get();
 
     if (snapshot.empty) {
       console.log('ℹ️ No schedules for today.');
@@ -133,11 +128,16 @@ async function checkAndSendSchedules() {
     for (const doc of snapshot.docs) {
       const schedule = doc.data();
 
-      if (!schedule.sent) {
+      // ✅ بدل sent
+      if (schedule.status !== 'sent') {
         const success = await triggerNotification(schedule);
 
         if (success) {
-          await db.collection('schedules').doc(doc.id).update({ sent: true });
+          await db
+            .collection('inventory_schedules')
+            .doc(doc.id)
+            .update({ status: 'sent' });
+
           console.log(`✅ Marked as sent: ${doc.id}`);
         }
       } else {
@@ -150,7 +150,6 @@ async function checkAndSendSchedules() {
 }
 
 console.log('🚀 LabFreeze Notification Engine is LIVE');
-console.log('FIREBASE_SERVICE_ACCOUNT_BASE64 exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64);
 
 checkAndSendSchedules();
 

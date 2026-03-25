@@ -16,16 +16,23 @@ function loadServiceAccountFromBase64() {
     throw new Error('Missing FIREBASE_SERVICE_ACCOUNT_BASE64');
   }
 
-  const jsonText = Buffer.from(raw, 'base64').toString('utf8');
-  const serviceAccount = JSON.parse(jsonText);
+  let serviceAccount;
+  try {
+    const jsonText = Buffer.from(raw, 'base64').toString('utf8');
+    serviceAccount = JSON.parse(jsonText);
+  } catch {
+    throw new Error('Invalid FIREBASE_SERVICE_ACCOUNT_BASE64');
+  }
+
+  if (!serviceAccount.private_key || typeof serviceAccount.private_key !== 'string') {
+    throw new Error('Missing private_key in service account JSON');
+  }
 
   serviceAccount.private_key = serviceAccount.private_key.replace(/\\n/g, '\n');
-
   return serviceAccount;
 }
 
 let serviceAccount;
-
 try {
   serviceAccount = loadServiceAccountFromBase64();
   console.log('✅ Firebase loaded');
@@ -42,7 +49,7 @@ if (!admin.apps.length) {
 
 const db = getFirestore();
 
-// ================= SERVICES =================
+// ================= SERVICES CONFIG =================
 
 const transporter =
   process.env.EMAIL_USER && process.env.EMAIL_PASS
@@ -66,10 +73,10 @@ async function triggerNotification(schedule) {
   const message = `تذكير جرد مختبر: ${schedule.message || 'موعد الجرد الدوري'}`;
   let sent = false;
 
-  // WhatsApp
   if (
     (schedule.type === 'WhatsApp' || schedule.type === 'Both') &&
     client &&
+    process.env.TWILIO_WHATSAPP_NUMBER &&
     schedule.staff_phone
   ) {
     try {
@@ -85,7 +92,6 @@ async function triggerNotification(schedule) {
     }
   }
 
-  // Email
   if (
     (schedule.type === 'Email' || schedule.type === 'Both') &&
     transporter &&
@@ -105,6 +111,20 @@ async function triggerNotification(schedule) {
     }
   }
 
+  if (
+    (schedule.type === 'WhatsApp' || schedule.type === 'Both') &&
+    !process.env.TWILIO_WHATSAPP_NUMBER
+  ) {
+    console.warn('⚠️ TWILIO_WHATSAPP_NUMBER is missing');
+  }
+
+  if (
+    (schedule.type === 'Email' || schedule.type === 'Both') &&
+    !transporter
+  ) {
+    console.warn('⚠️ Email service is not configured');
+  }
+
   return sent;
 }
 
@@ -112,23 +132,22 @@ async function triggerNotification(schedule) {
 
 async function checkAndSendSchedules() {
   const today = new Date().toISOString().split('T')[0];
-  console.log(`🔍 Checking schedules for: ${today}`);
+  console.log(`🔍 Checking inventory schedules for: ${today}`);
 
   try {
     const snapshot = await db
-      .collection('inventory_schedules') // ✅ مهم جدًا
+      .collection('inventory_schedules')
       .where('date', '==', today)
       .get();
 
     if (snapshot.empty) {
-      console.log('ℹ️ No schedules for today.');
+      console.log('ℹ️ No inventory schedules for today.');
       return;
     }
 
     for (const doc of snapshot.docs) {
       const schedule = doc.data();
 
-      // ✅ بدل sent
       if (schedule.status !== 'sent') {
         const success = await triggerNotification(schedule);
 
@@ -139,6 +158,8 @@ async function checkAndSendSchedules() {
             .update({ status: 'sent' });
 
           console.log(`✅ Marked as sent: ${doc.id}`);
+        } else {
+          console.log(`⚠️ Notification not sent for: ${doc.id}`);
         }
       } else {
         console.log(`ℹ️ Already sent: ${doc.id}`);
@@ -150,6 +171,10 @@ async function checkAndSendSchedules() {
 }
 
 console.log('🚀 LabFreeze Notification Engine is LIVE');
+console.log('FIREBASE_SERVICE_ACCOUNT_BASE64 exists:', !!process.env.FIREBASE_SERVICE_ACCOUNT_BASE64);
+console.log('EMAIL_USER exists:', !!process.env.EMAIL_USER);
+console.log('TWILIO_SID exists:', !!process.env.TWILIO_SID);
+console.log('TWILIO_WHATSAPP_NUMBER exists:', !!process.env.TWILIO_WHATSAPP_NUMBER);
 
 checkAndSendSchedules();
 

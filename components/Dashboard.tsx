@@ -101,7 +101,7 @@ const Dashboard: React.FC<DashboardProps> = ({ samples, lang, users, totalCapaci
             key={idx} 
             className="bg-white p-6 rounded-[32px] border border-slate-100 flex flex-col items-center justify-center gap-4 hover:shadow-xl hover:-translate-y-2 transition-all duration-500 text-center group relative overflow-hidden shadow-sm"
             style={{ animationDelay: `${idx * 100}ms` }}
-          ><NotificationCenter />
+          >
             <div className={`absolute inset-0 opacity-0 group-hover:opacity-5 transition-opacity ${stat.color}`}></div>
             <div className={`w-14 h-14 ${stat.color} rounded-2xl flex items-center justify-center text-white shadow-lg shadow-blue-100 group-hover:scale-110 group-hover:rotate-6 transition-transform duration-500 border border-white/20`}>
               <stat.icon className="w-7 h-7" />
@@ -113,6 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ samples, lang, users, totalCapaci
           </div>
         ))}
       </div>
+      <NotificationCenter />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         

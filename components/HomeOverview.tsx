@@ -245,11 +245,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
           </div>
         ))}
       </div>
-
-      <div className="bg-red-500 text-white p-6 rounded-2xl text-2xl font-black">
-  TEST HOME OVERVIEW
-</div>
-<NotificationCenter />
+      <NotificationCenter />
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-slate-100 shadow-sm">

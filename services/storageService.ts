@@ -123,7 +123,18 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
   console.error('Firestore Error: ', JSON.stringify(errInfo));
   throw new Error(JSON.stringify(errInfo));
 }
+function formatPhoneNumber(phone: string) {
+  if (!phone) return '';
 
+  let cleaned = phone.trim();
+  cleaned = cleaned.replace(/[\s\-()]/g, '');
+
+  if (cleaned.startsWith('+')) return cleaned;
+  if (cleaned.startsWith('20')) return `+${cleaned}`;
+  if (cleaned.startsWith('01')) return `+20${cleaned.slice(1)}`;
+
+  return cleaned;
+}
 export const storageService = {
   subscribeToChanges(onSampleChange: () => void, onHoldChange: () => void) {
     if (!auth.currentUser) {
@@ -877,46 +888,38 @@ export const storageService = {
     setJSON(KEYS.EVALS, [...evals, ...current]);
   },
 
-  async getSchedules(): Promise<InventorySchedule[]> {
-    if (await shouldUseCloud()) {
-      const path = 'inventory_schedules';
-      try {
-        const q = query(collection(db, path), orderBy('date', 'desc'));
-        const snapshot = await getDocs(q);
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as InventorySchedule));
-      } catch (e: any) {
-        handleFirestoreError(e, OperationType.LIST, path);
-      }
-    }
-    return getJSON(KEYS.SCHED, []);
-  },
-
   async saveSchedules(schedules: InventorySchedule[]) {
-    if (await shouldUseCloud()) {
-      try {
-        const batchPromises = schedules.map(s =>
-          setDoc(doc(db, 'inventory_schedules', s.id), s, { merge: true })
-        );
-        await Promise.all(batchPromises);
-        return;
-      } catch (e: any) {
-        const msg = e.message || '';
-        if (e.code === 'permission-denied' || msg.toLowerCase().includes('permission')) {
-          console.warn('Firestore permission denied for saveSchedules, using local fallback');
-        } else {
-          console.error('Firestore saveSchedules error:', e);
-        }
+  const normalizedSchedules = schedules.map(s => ({
+    ...s,
+    staff_phone: formatPhoneNumber((s as any).staff_phone || ''),
+    status: (s as any).status || 'pending'
+  }));
+
+  if (await shouldUseCloud()) {
+    try {
+      const batchPromises = normalizedSchedules.map(s =>
+        setDoc(doc(db, 'inventory_schedules', s.id), s, { merge: true })
+      );
+      await Promise.all(batchPromises);
+      return;
+    } catch (e: any) {
+      const msg = e.message || '';
+      if (e.code === 'permission-denied' || msg.toLowerCase().includes('permission')) {
+        console.warn('Firestore permission denied for saveSchedules, using local fallback');
+      } else {
+        console.error('Firestore saveSchedules error:', e);
       }
     }
+  }
 
-    const current = getJSON(KEYS.SCHED, []) as InventorySchedule[];
-    schedules.forEach(s => {
-      const idx = current.findIndex(c => c.id === s.id);
-      if (idx > -1) current[idx] = s;
-      else current.unshift(s);
-    });
-    setJSON(KEYS.SCHED, current);
-  },
+  const current = getJSON(KEYS.SCHED, []) as InventorySchedule[];
+  normalizedSchedules.forEach(s => {
+    const idx = current.findIndex(c => c.id === s.id);
+    if (idx > -1) current[idx] = s as InventorySchedule;
+    else current.unshift(s as InventorySchedule);
+  });
+  setJSON(KEYS.SCHED, current);
+},
 
   async deleteSchedule(id: string) {
     if (await shouldUseCloud()) {

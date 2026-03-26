@@ -16,6 +16,19 @@ interface SettingsViewProps {
   setEnabledFeatures: React.Dispatch<React.SetStateAction<View[]>>;
 }
 
+function formatEgyptPhoneNumber(phone: string) {
+  if (!phone) return '';
+
+  let cleaned = phone.trim();
+  cleaned = cleaned.replace(/[\s\-()]/g, '');
+
+  if (cleaned.startsWith('+')) return cleaned;
+  if (cleaned.startsWith('20')) return `+${cleaned}`;
+  if (cleaned.startsWith('01')) return `+20${cleaned.slice(1)}`;
+
+  return cleaned;
+}
+
 const SettingsView: React.FC<SettingsViewProps> = ({
   lang,
   users,
@@ -146,7 +159,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
         username: data.username!,
         password: data.password!,
         role: data.role || UserRole.USER,
-        phone: data.phone,
+        phone: formatEgyptPhoneNumber(data.phone || ''),
         email: finalEmail,
         permissions: data.permissions || ['home'],
         createdAt: new Date().toISOString()
@@ -162,6 +175,7 @@ const SettingsView: React.FC<SettingsViewProps> = ({
           ? {
               ...u,
               ...data,
+              phone: data.phone !== undefined ? formatEgyptPhoneNumber(data.phone || '') : u.phone,
               password: data.password ? data.password : u.password
             }
           : u

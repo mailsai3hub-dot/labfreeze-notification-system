@@ -3,7 +3,7 @@ import { Sample, SampleStatus, User } from '../types';
 import { ICONS } from '../constants';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { reportService } from '../services/reportService';
-import NotificationCenter from '../components/NotificationCenter';
+
 interface DashboardProps {
   samples: Sample[];
   lang: 'ar' | 'en';
@@ -113,7 +113,7 @@ const Dashboard: React.FC<DashboardProps> = ({ samples, lang, users, totalCapaci
           </div>
         ))}
       </div>
-      <NotificationCenter />
+      
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         

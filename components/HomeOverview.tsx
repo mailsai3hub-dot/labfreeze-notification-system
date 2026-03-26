@@ -6,7 +6,7 @@ import {
 import { reportService } from '../services/reportService';
 import { ICONS } from '../constants';
 import { Sample, HoldCase, View, SampleStatus, InventorySchedule, User, HoldFileStatus } from '../types';
-
+import NotificationCenter from './NotificationCenter';
 interface HomeOverviewProps {
   samples: Sample[];
   holdCases: HoldCase[];
@@ -314,7 +314,7 @@ const HomeOverview: React.FC<HomeOverviewProps> = ({
                   iconType="circle" 
                   iconSize={10}
                   wrapperStyle={{ fontSize: '12px', fontWeight: 800, color: '#000000', paddingTop: '20px' }}
-                />
+                /><NotificationCenter />
               </PieChart>
             </ResponsiveContainer>
             {/* Center Text */}
